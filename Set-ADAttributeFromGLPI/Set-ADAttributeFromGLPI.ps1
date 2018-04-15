@@ -14,7 +14,7 @@
 
 # Import settings from configuration file
 $workDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-[xml]$configFile = Get-Content "$workDir/Set-ADComputerAttribute.xml" -ErrorAction Stop
+[xml]$configFile = Get-Content "$workDir/Set-ADAttributeFromGLPI.xml" -ErrorAction Stop
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = @()
