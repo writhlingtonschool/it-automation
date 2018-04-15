@@ -17,7 +17,7 @@ $workDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 [xml]$configFile = Get-Content "$workDir/Set-ADAttributeFromGLPI.xml" -ErrorAction Stop
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
-$attributes = @()
+$attributes = New-Object System.Collections.ArrayList
 $attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="locations_id"; ADAttribute="RoomNumber"; ValidCharsRegex="^[>'é/a-zA-Z0-9- ]{1,64}$" }
 $attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="serial"; ADAttribute="SerialNumber"; ValidCharsRegex="^[a-zA-Z0-9]{1,64}$" }
 
@@ -37,10 +37,44 @@ $glpiRestApiUri = $configFile.Settings.GLPISettings.GLPIRestApiUri
 
 # Instantiate arrays
 $computersMatched = New-Object System.Collections.ArrayList
-$computersToUpdate = @()
-$computersToSkip = @()
-$computersUpdated = @()
-$computersFailed = @()
+$computersToUpdate = New-Object System.Collections.ArrayList
+$computersToSkip = New-Object System.Collections.ArrayList
+$computersUpdated = New-Object System.Collections.ArrayList
+$computersFailed = New-Object System.Collections.ArrayList
+$results = New-Object System.Collections.ArrayList
+
+# Function to update result array
+function Update-Results
+{
+  param
+  (
+    [Parameter(Position=0)]
+    [Object[]]$CurrentObject,
+
+    [Parameter(Position=1)]
+    [string]$Result
+  )
+  $script:results += New-Object -TypeName PSCustomObject -Property @{
+    ADComputer="$( $CurrentObject.ADComputer )";
+    ADAttribute="$( $CurrentObject.ADAttribute )";
+    ADAttributeVal="$( $CurrentObject.ADAttributeVal )";
+    GLPIAttributeVal="$( $CurrentObject.GLPIAttributeVal )";
+    GLPIAttribute="$( $CurrentObject.GLPIAttribute )";
+    Result="$Result"
+    }
+}
+
+# Function to get results
+function Get-Results
+{
+  $x = New-Object System.Collections.ArrayList
+  ForEach ( $result in $results )
+  {
+    $x += $result
+  }
+  return $x
+}
+
 
 #
 # Step 1: Get AD computers
@@ -125,7 +159,6 @@ ForEach ( $ADComputer in $ADComputers ) # Loop through AD computers
   {
     if ( $( $ADComputer.Name ) -eq $( $glpiComputer.name ) )
     {
-      Write-Warning "Found match $( $ADComputer.Name )..."
       ForEach ( $attribute in $attributes )
       {
         $computersMatched += New-Object -TypeName PSCustomObject -Property @{
@@ -156,15 +189,10 @@ ForEach ( $matchedComputer in $computersMatched )
 {
   if ( "$( $matchedComputer.ADAttributeVal )" -eq "$( $matchedComputer.GLPIAttributeVal )" )
   {
-    $computersToSkip += New-Object -TypeName PSCustomObject -Property @{
-      ADComputer="$( $matchedComputer.ADComputer )";
-      ADAttribute="$( $matchedComputer.ADAttribute )";
-      ADAttributeVal="$( $matchedComputer.ADAttributeVal )";
-      GLPIAttributeVal="$( $matchedComputer.GLPIAttributeVal )";
-      GLPIAttribute="$( $matchedComputer.GLPIAttribute )"
-      }
+    Update-Results -CurrentObject $matchedComputer -Result "Unchanged"
   } else
   {
+    Update-Results -CurrentObject $matchedComputer -Result "Staged (pending update)"
     $computersToUpdate += New-Object -TypeName PSCustomObject -Property @{
       ADComputer="$( $matchedComputer.ADComputer )";
       ADAttribute="$( $matchedComputer.ADAttribute )";
@@ -192,36 +220,16 @@ if ( $computersToUpdate.Count -gt 0 ) {
           Write-Host "[INFO] ADDryRun is true, not commiting changes..."
         } else
         {
-          Write-Warning "Setting $( $computerToUpdate.ADComputer ) AD attribute $( $computerToUpdate.ADAttribute ) to GLPI Attribute Value $( $computerToUpdate.GLPIAttributeVal )..."
           Set-ADComputer "$( $computerToUpdate.ADComputer )" -Replace @{$( $computerToUpdate.ADAttribute ) = "$( $computerToUpdate.GLPIAttributeVal )"} -Credential $ADDomainCredentials
         }
-        $computersToUpdate += New-Object -TypeName PSCustomObject -Property @{
-          ADComputer="$( $computerToUpdate.ADComputer )";
-          ADAttribute="$( $computerToUpdate.ADAttribute )";
-          ADAttributeVal="$( $computerToUpdate.ADAttributeVal )";
-          GLPIAttributeVal="$( $computerToUpdate.GLPIAttributeVal )";
-          GLPIAttribute="$( $computerToUpdate.GLPIAttribute )"
-          }
+        Update-Results -CurrentObject $computerToUpdate -Result "Updated"
       } catch
       {
-        $computersFailed += New-Object -TypeName PSCustomObject -Property @{
-          ADComputer="$( $computerToUpdate.ADComputer )";
-          ADAttribute="$( $computerToUpdate.ADAttribute )";
-          ADAttributeVal="$( $computerToUpdate.ADAttributeVal )";
-          GLPIAttributeVal="$( $computerToUpdate.GLPIAttributeVal )";
-          GLPIAttribute="$( $computerToUpdate.GLPIAttribute )"
-          }
+        Update-Results -CurrentObject $computerToUpdate -Result "Failed (error with Set-ADCompute)"
       }
     } else
     {
-      $computersFailed += New-Object -TypeName PSCustomObject -Property @{
-        ADComputer="$( $computerToUpdate.ADComputer )";
-        ADAttribute="$( $computerToUpdate.ADAttribute )";
-        ADAttributeVal="$( $computerToUpdate.ADAttributeVal )";
-        GLPIAttributeVal="$( $computerToUpdate.GLPIAttributeVal )";
-        GLPIAttribute="$( $computerToUpdate.GLPIAttribute )"
-        FailReason="Failed regex test"
-        }
+      Update-Results -CurrentObject $computerToUpdate -Result "Failed (regex test)"
     }
   }
 } else
@@ -235,10 +243,14 @@ if ( $computersToUpdate.Count -gt 0 ) {
 if ( $computersUpdated.Count -gt 0 )
 {
   Write-Host "[INFO] Updated the following computers: "
-  $computersUpdated | Format-Table
+#  $computersUpdated | Format-Table
 }
 if ( $computersFailed.Count -gt 0 )
 {
   Write-Host "[INFO] Failed to update the following computers:"
-  $computersFailed | Format-Table
+ # $computersFailed | Format-Table
 }
+
+# Print the final results
+Write-Host
+Get-Results | Format-Table
