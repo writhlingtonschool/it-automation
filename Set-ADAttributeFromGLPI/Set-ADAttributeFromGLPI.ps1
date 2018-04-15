@@ -140,9 +140,6 @@ ForEach ( $ADComputer in $ADComputers ) # Loop through AD computers
   }
 }
 
-Write-Warning "Computers matched:"
-$computersMatched | Format-Table
-
 #
 # Step 8: Ensure we have some matched computers to process
 #
@@ -177,12 +174,6 @@ ForEach ( $matchedComputer in $computersMatched )
       }
   }
 }
-
-Write-Warning "Computers to skip:"
-$computersToSkip | Format-Table
-
-Write-Warning "Computers to update:"
-$computersToUpdate | Format-Table
 
 #
 # Step 10: Run update routine
@@ -243,11 +234,11 @@ if ( $computersToUpdate.Count -gt 0 ) {
 #
 if ( $computersUpdated.Count -gt 0 )
 {
-  Write-Wasrning "Updated the following computers: "
+  Write-Host "[INFO] Updated the following computers: "
   $( $computersUpdated )
 }
 if ( $computersFailed.Count -gt 0 )
 {
-  Write-Warning "Failed to update the following computers:"
+  Write-Host "[INFO] Failed to update the following computers:"
   $( $computersFailed )
 }
