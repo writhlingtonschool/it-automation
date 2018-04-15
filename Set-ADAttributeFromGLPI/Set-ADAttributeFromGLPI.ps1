@@ -252,5 +252,5 @@ if ( $computersFailed.Count -gt 0 )
 }
 
 # Print the final results
-Write-Host
+Write-Host "[INFO] Results:"
 Get-Results | Format-Table
