@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<Settings>
+  <ADSettings>
+    <ADSearchBase>OU=MyComputers,DC=my,DC=domain</ADSearchBase>
+    <ADSearchFilter>*</ADSearchFilter>
+    <ADDomainUser>DOMAIN\User</ADDomainUser>
+    <ADDomainPass>Pa55sw0rd</ADDomainPass>
+  </ADSettings>
+  <GLPISettings>
+    <GLPIUser>glpi</GLPIUser>
+    <GLPIPass>Pa55sw0rd</GLPIPass>
+    <GLPIAppToken>AppT0k3n</GLPIAppToken>
+    <GLPIRestApiUri>http://glpi.server.com/apirest.php</GLPIRestApiUri>
+  </GLPISettings>
+</Settings>
