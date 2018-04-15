@@ -240,17 +240,5 @@ if ( $computersToUpdate.Count -gt 0 ) {
 #
 # Step 11: Present results
 #
-if ( $computersUpdated.Count -gt 0 )
-{
-  Write-Host "[INFO] Updated the following computers: "
-#  $computersUpdated | Format-Table
-}
-if ( $computersFailed.Count -gt 0 )
-{
-  Write-Host "[INFO] Failed to update the following computers:"
- # $computersFailed | Format-Table
-}
-
-# Print the final results
 Write-Host "[INFO] Results:"
 Get-Results | Format-Table
