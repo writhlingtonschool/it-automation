@@ -38,9 +38,6 @@ $glpiRestApiUri = $configFile.Settings.GLPISettings.GLPIRestApiUri
 # Instantiate arrays
 $computersMatched = New-Object System.Collections.ArrayList
 $computersToUpdate = New-Object System.Collections.ArrayList
-$computersToSkip = New-Object System.Collections.ArrayList
-$computersUpdated = New-Object System.Collections.ArrayList
-$computersFailed = New-Object System.Collections.ArrayList
 $results = New-Object System.Collections.ArrayList
 
 # Function to update result array
