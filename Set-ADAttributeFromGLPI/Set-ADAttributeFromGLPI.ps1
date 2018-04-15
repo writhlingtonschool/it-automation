@@ -225,7 +225,7 @@ if ( $computersToUpdate.Count -gt 0 ) {
         Update-Results -CurrentObject $computerToUpdate -Result "Updated"
       } catch
       {
-        Update-Results -CurrentObject $computerToUpdate -Result "Failed (error with Set-ADCompute)"
+        Update-Results -CurrentObject $computerToUpdate -Result "Failed ($($_.CategoryInfo.ToString()))"
       }
     } else
     {
