@@ -1,5 +1,14 @@
-﻿# Sets AD attributes based on information from GLPI
-#
+﻿<#
+.SYNOPSIS
+    Sets AD attributes based on information from GLPI
+
+.EXAMPLE
+    Set-ADAttributeFromGLPI.ps1
+
+.LINK
+    https://github.com/writhlingtonschool/it-automation
+#>
+
 # Step 1: Get AD computers
 # Step 2: Initialise GLPI REST API session
 # Step 3: Get GLPI computers
