@@ -8,6 +8,10 @@
 
 Synchronises attributes from GLPI to Active Directory.  Requires GLPI REST API.
 
+#### `Add-GitHubUsers`
+
+Provisions and deprovisions GitHub users based on Active Directory group membership using GitHub SCIM.
+
 ## Auditing
 
 **Script for auditing.**

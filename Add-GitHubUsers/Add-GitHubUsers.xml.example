@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<Settings>
+    <ScriptSettings>
+        <DryRun>true</DryRun>
+        <ProvisionUsers>true</ProvisionUsers>
+        <DeprovisionUsers>true</DeprovisionUsers>
+    </ScriptSettings>
+    <GHSettings>
+        <GHToken>12345abcde</GHToken>
+        <GHOrganization>github-organisation</GHOrganization>
+    </GHSettings>
+    <ADSettings>
+        <ADGroups>
+            <Group>ad-group-1</Group>
+            <Group>ad-group-2</Group>
+        </ADGroups>
+    </ADSettings>
+</Settings>
