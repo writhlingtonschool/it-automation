@@ -14,5 +14,7 @@
             <Group>ad-group-1</Group>
             <Group>ad-group-2</Group>
         </ADGroups>
+        <ADDomainUser>DOMAIN\user</ADDomainUser>
+        <ADDomainPass>D0ma1nPa55w0rd</ADDomainPass>
     </ADSettings>
 </Settings>

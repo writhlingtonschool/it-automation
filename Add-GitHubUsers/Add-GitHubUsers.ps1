@@ -27,11 +27,15 @@ $Headers.Add( "Accept", 'application/vnd.github.cloud-9-preview+json+scim' )
 
 # Active Directory with optional GitHub Team membership
 $ADGroups = $configFile.Settings.ADSettings.ADGroups.Group
+$DomainUser="$( $configFile.Settings.ADSettings.ADDomainUser )"
+$DomainPass=ConvertTo-SecureString -String "$( $configFile.Settings.ADSettings.ADDomainPass )" -AsPlainText -Force
+$DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPass
 
 # Script
 $DryRun = $configFile.Settings.ScriptSettings.DryRun
 $ProvisionUsers = $configFile.Settings.ScriptSettings.ProvisionUsers
 $DeprovisionUsers = $configFile.Settings.ScriptSettings.DeprovisionUsers
+$LogFile = "$workDir/Add-GitHubUsers-Log_$( Get-Date -UFormat '+%Y-%m-%d-T%H-%M-%S' ).log"
 
 # Instantiate arrays
 $ADUsers = New-Object System.Collections.ArrayList
@@ -39,6 +43,17 @@ $GHUsers = $Null
 $UsersToProvision = New-Object System.Collections.ArrayList
 $UsersToDeprovision = New-Object System.Collections.ArrayList
 $Results = New-Object System.Collections.ArrayList
+
+# Function that logs a message to a text file
+function LogMessage
+{
+    param
+    (
+        [Parameter(Position=0)]
+        [string]$Message
+    )
+    ((Get-Date).ToString() + " - " + $Message) >> "$LogFile"
+}
 
 # Function to update result array
 function Update-Results
@@ -75,6 +90,8 @@ function Update-Results
         Action="$Action"
         Status="$Status"
     }
+
+    LogMessage -Message "$Status ($Action) for $Subject"
 }
 
 # Function to get results
@@ -231,34 +248,35 @@ function Test-ADUser
     }
 }
 
-Write-Host "Starting script..."
+LogMessage -Message "Starting script..."
 
 #
 # Print out dry run warning
 #
-if ( $DryRun -eq $True ) { Write-Warning "DryRun is True, not committing changes..." }
+if ( $DryRun -eq $True ) { LogMessage -Message "DryRun is True, not committing changes..." }
 
 #
 # Get AD users from groups
 #
-Write-Host "Getting AD users..."
+LogMessage -Message "Getting AD users..."
 ForEach ( $ADGroup in $ADGroups )
 {
-    Write-Host "Gettings AD users in group $ADGroup..."
+    LogMessage -Message "Gettings AD users in group $ADGroup..."
     try
     {
-        $ADUsers += Get-ADGroupMember "$ADGroup" | Get-ADUser -Properties Mail, Enabled, AccountExpirationDate
+        $ADUsers += Get-ADGroupMember "$ADGroup" -Credential $DomainCredentials | Get-ADUser -Credential $DomainCredentials -Properties Mail, Enabled, AccountExpirationDate
     }
     catch
     {
-       throw "Failed to get users in group: $ADGroup..."
+        LogMessage -Message "Failed to get users in group: $ADGroup..."
+        throw "Failed to get users in group: $ADGroup..."
     }
 }
 
 #
 # Get provisioned GitHub users
 #
-Write-Host "Getting GitHub users..."
+LogMessage -Message "Getting GitHub users..."
 try
 {
     $GHUsers = Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/scim/v2/organizations/$GHOrganization/Users" -Method Get | Select-Object -ExpandProperty Resources
@@ -267,6 +285,7 @@ try
 }
 catch
 {
+    LogMessage -Message "Failed to get users in group: $ADGroup..."
     throw "Failed to get GitHub users"
 }
 
@@ -274,20 +293,20 @@ catch
 # Compare AD and GH user objects
 #
 
-Write-Host "Staging users that are present in AD but not in GitHub..."
+LogMessage -Message "Staging users that are present in AD but not in GitHub..."
 $ADUsers | Where-Object { $GHUsers.Mail -notcontains $_.Mail } | ForEach-Object {
     Update-Results -Subject "$( $_.Mail )" -Action "Provision" -Status "Staged"
     $UsersToProvision += $_
 }
 
-Write-Host "Staging users that are present in GitHub but not in AD..."
+LogMessage -Message "Staging users that are present in GitHub but not in AD..."
 $GHUsers | Where-Object { $ADUsers.Mail -notcontains $_.Mail } | ForEach-Object {
     Update-Results -Subject "$( $_.Mail )" -Action "Deprovision" -Status "Staged"
     $UsersToDeprovision += $_
 }
 
 # Get already provisioned users
-Write-Host "Staging users that are present in both AD and GitHub..."
+LogMessage -Message "Staging users that are present in both AD and GitHub..."
 ForEach ( $ADUser in $ADUsers )
 {
     ForEach ( $GHUser in $GHUsers )
@@ -334,12 +353,12 @@ if ( $ProvisionUsers -eq $True )
     }
     else
     {
-        Write-Host "No users to provision (UsersToProvision.Count is 0)..."
+        LogMessage -Message "No users to provision (UsersToProvision.Count is 0)..."
     }
 }
 else
 {
-    Write-Warning "ProvisionUsers is not true, skipping routine..."
+    LogMessage -Message "ProvisionUsers is not true, skipping routine..."
 }
 
 #
@@ -360,15 +379,14 @@ if ( $DeprovisionUsers -eq $True )
     }
     else
     {
-        Write-Host "No users to deprovision (UsersToDeprovision.Count is 0)..."
+        LogMessage -Message "No users to deprovision (UsersToDeprovision.Count is 0)..."
     }
 }
 else
 {
-    Write-Warning "DeprovisionUsers is not true, skipping routine..."
+    LogMessage -Message "DeprovisionUsers is not true, skipping routine..."
 }
 
-Write-Host "Collective results:" -ForegroundColor Blue
 Get-Results | Out-Host
 
-Write-Host "Finished script."
+LogMessage -Message "Finished script."
