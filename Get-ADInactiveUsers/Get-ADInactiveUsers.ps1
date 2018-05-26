@@ -1,35 +1,38 @@
 ﻿<#
 .SYNOPSIS
-    This script pulls a report of users who haven't authenticated to on-site PCs in 90 days
+    This script searches for users that haven't authenticated to domain-joined PCs in x days
 
-.DESCRIPTION
-    This script requires a SMTP server and the Active Directory PowerShell module.
+.PARAMETER SearchBase
+    Active Directory LDAP search base e.g. "OU=Users,OU=Department,DC=domain,DC=uk"
+
+.PARAMETER TimeSpan
+    Allowed timespan in days until a user is considered inactive e.g. 90
+
+.PARAMETER DomainUser
+    Domain user with permission to perform the query e.g. "DOMAIN\user"
+
+.PARAMETER DomainPass
+    Password for the respective $DomainUser e.g. "Pa5sword"
 
 .EXAMPLE
-    Get-InactiveUsers.ps1
+    Get-ADInactiveUsers.ps1 -SearchBase "OU=Users,OU=Department,DC=domain,DC=uk" -TimeSpan 90
 
 .LINK
     https://github.com/writhlingtonschool/it-automation
 #>
 
-# Import settings from configuration file
-$workDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-[xml]$configFile = Get-Content "$workDir/Get-ADInactiveUsers.xml" -ErrorAction Stop
+param
+(
+    [Parameter(Mandatory=$true)][string]$SearchBase,
+    [Parameter(Mandatory=$true)][string]$TimeSpan,
+    [Parameter(Mandatory=$true)][string]$DomainUser,
+    [Parameter(Mandatory=$true)][string]$DomainPass
+)
 
-# Variables
-$Days = "90"
-$ReportName = "Auto report: Enabled users with no on-site login within $Days days"
-$SMTPServer = $configFile.Settings.SMTPSettings.SMTPServer
-$SMTPFrom = $configFile.Settings.SMTPSettings.SMTPFrom
-$SMTPTo = $configFile.Settings.SMTPSettings.SMTPTo
-$ADSearchBase = $configFile.Settings.ADSettings.ADSearchBase
+# Prepare PSCredential object
+$DomainPassSecure=ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
+$DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
 
-# Get users from AD
-$Users = Search-AdAccount -UsersOnly -SearchBase "$ADSearchBase" -AccountInactive -TimeSpan $Days |
-Where Enabled -eq $True | Select Name, Enabled, LastLogonDate | ConvertTo-Html
-
-# Create the e-mail body
-$Body = "<p>The following users have not logged in on-site in over $Days days.</p>" + $Users
-
-# Send the e-mail
-Send-MailMessage -smtpserver $SMTPServer -from $SMTPFrom -to $SMTPTo -subject $ReportName -body "$Body" -bodyashtml
+# Run the search
+Search-AdAccount -UsersOnly -SearchBase "$SearchBase" -AccountInactive -TimeSpan $TimeSpan -Credential $DomainCredentials |
+Where Enabled -eq $True | Select Name, Enabled, LastLogonDate
