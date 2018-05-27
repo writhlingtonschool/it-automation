@@ -1,120 +1,55 @@
 ﻿<#
 .SYNOPSIS
     This script synchronises GitHub users with Active Directory using SCIM
+
 .DESCRIPTION
+
     This module provisions and deprovisions GitHub users based on Active directory
     group membership.  Users are deprovisioned when they are disabled or expired.
+
 .EXAMPLE
-    Synchronise-GitHubUsers.ps1
+
+    Add-GitHubUsers.ps1
+
 .LINK
     https://github.com/writhlingtonschool/it-powershellmodules
 #>
 
-# Import settings from configuration file
-$workDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-[xml]$configFile = Get-Content "$workDir/Add-GitHubUsers.xml" -ErrorAction Stop
+param
+(
+    [string]$GHToken,
+    [string]$GHOrganization,
+    [String[]]$ADGroups,
+    [string]$DomainUser,
+    [string]$DomainPass,
+    [bool]$DryRun,
+    [bool]$Verbose
+)
 
 # Configure PS to use TLS 1.2 for web requests
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Enable verbose logging
+if( $Verbose -eq $True )
+{
+    $VerbosePreference = "continue"
+}
+
 # GitHub
-$GHToken = $configFile.Settings.GHSettings.GHToken
-$GHOrganization = $configFile.Settings.GHSettings.GHOrganization
 $Base64GHToken = [System.Convert]::ToBase64String( [char[]]$GHToken );
 $Headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
 $Headers.Add( "Authorization", 'Basic {0}' -f $Base64GHToken )
 $Headers.Add( "Accept", 'application/vnd.github.cloud-9-preview+json+scim' )
 
-# Active Directory with optional GitHub Team membership
-$ADGroups = $configFile.Settings.ADSettings.ADGroups.Group
-$DomainUser="$( $configFile.Settings.ADSettings.ADDomainUser )"
-$DomainPass=ConvertTo-SecureString -String "$( $configFile.Settings.ADSettings.ADDomainPass )" -AsPlainText -Force
-$DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPass
-
-# Script
-$DryRun = $configFile.Settings.ScriptSettings.DryRun
-$ProvisionUsers = $configFile.Settings.ScriptSettings.ProvisionUsers
-$DeprovisionUsers = $configFile.Settings.ScriptSettings.DeprovisionUsers
-$LogFile = "$workDir/Add-GitHubUsers-Log_$( Get-Date -UFormat '+%Y-%m-%d-T%H-%M-%S' ).log"
+# Active Directory
+$DomainPassSecure=ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
+$DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
 
 # Instantiate arrays
 $ADUsers = New-Object System.Collections.ArrayList
 $GHUsers = $Null
 $UsersToProvision = New-Object System.Collections.ArrayList
 $UsersToDeprovision = New-Object System.Collections.ArrayList
-$Results = New-Object System.Collections.ArrayList
-
-# Function that logs a message to a text file
-function LogMessage
-{
-    param
-    (
-        [Parameter(Position=0)]
-        [string]$Message
-    )
-    ((Get-Date).ToString() + " - " + $Message) >> "$LogFile"
-}
-
-# Function to update result array
-function Update-Results
-{
-    <#
-    .SYNOPSIS
-        Updates a results array
-    .DESCRIPTION
-        This function is used to add context-specific information to a results array
-    .EXAMPLE
-        Update-Results -Subject "john.doe@microsoft.com" -Action "Provision" -Status "Success"
-    .PARAMETER Subject
-        An identifying attribute of a user object
-    .PARAMETER Action
-        The action being taken on the user
-    .PARAMETER Status
-        The result of the action
-    #>
-    param
-    (
-        [Parameter(Position=0)]
-        [string]$Subject,
-
-        [Parameter(Position=1)]
-        [string]$Action,
-
-        [Parameter(Position=2)]
-        [string]$Status
-    )
-
-    $script:Results += New-Object -TypeName PSCustomObject -Property @{
-        Date="$( Get-Date )"
-        Subject="$Subject"
-        Action="$Action"
-        Status="$Status"
-    }
-
-    LogMessage -Message "$Status ($Action) for $Subject"
-}
-
-# Function to get results
-function Get-Results
-{
-    <#
-    .SYNOPSIS
-        Gets entries stored in the $Results array
-    .DESCRIPTION
-        This function returns the entries stored in the $Results array and can be formatted
-        for easy viewing
-    .EXAMPLE
-        Get-Results | Format-Table
-    .EXAMPLE
-        Get-Results | Where-Object Subject -eq "john.doe@microsoft.com"
-    #>
-    $x = New-Object System.Collections.ArrayList
-    ForEach ( $Result in $Results )
-    {
-        $x += $Result
-    }
-    return $x
-}
 
 # Function to provision a GitHub user
 function Add-GitHubUser
@@ -122,10 +57,13 @@ function Add-GitHubUser
     <#
     .SYNOPSIS
         Provisions a GitHub user
+
     .DESCRIPTION
         This function provisions a GitHub user using information from an AD user object
+
     .EXAMPLE
         Add-GitHubUser -User $ADUser
+
     .PARAMETER User
         An AD user object
     #>
@@ -146,12 +84,12 @@ function Add-GitHubUser
     try
     {
         Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/scim/v2/organizations/$GHOrganization/Users" -Body $Body -Method Post | Out-Null
-        Update-Results -Subject "$( $User.Mail )" -Action Provision -Status Success
+        Write-Host "Successfully provisioned user $( $User.Mail )..."
     }
     catch
     {
-        $Reason = "($( $_.Exception.Response.StatusCode.value__ ) $( $_.Exception.Response.StatusDescription ))"
-        Update-Results -Subject "$( $User.Mail )" -Action Provision -Status "Failed $Reason"
+        Write-Error "Failed to provision user $( $User.Mail )!..."
+        $_
     }
 }
 
@@ -161,10 +99,13 @@ function Remove-GitHubUser
     <#
     .SYNOPSIS
         Deprovisions a GitHub user
+
     .DESCRIPTION
         This function deprovisions a GitHub user
+
     .EXAMPLE
         Remove-GitHubUser -GHUserID "$GHUserID"
+
     .PARAMETER GHUserID
         The GitHub SCIM user ID
     #>
@@ -177,12 +118,12 @@ function Remove-GitHubUser
     try
     {
         Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/scim/v2/organizations/$GHOrganization/Users/$GHUserID" -Method Delete | Out-Null
-        Update-Results -Subject "$GHUserID" -Action Deprovision -Status Success
+        Write-Host "Successfully deprovisioned user $GHUserID..."
     }
     catch
     {
-        $Reason = "($( $_.Exception.Response.StatusCode.value__ ) $( $_.Exception.Response.StatusDescription ))"
-        Update-Results -Subject "$GHUserID" -Action Deprovision -Status "Failed $Reason"
+        Write-Error "Failed to deprovision user $GHUserID!..."
+        $_
     }
 }
 
@@ -192,11 +133,14 @@ function Test-EmailAddress
     <#
     .SYNOPSIS
         Tests an e-mail address to ensure it is valid
+
     .DESCRIPTION
         This function tests an e-mail address using native PowerShell casting.
         $True will be returned if the e-mail address is valid.
+
     .EXAMPLE
         Test-EmailAddress -EmailAddress "john.doe@microsoft.com"
+
     .PARAMETER EmailAddress
         An e-mail address that should be tested
     #>
@@ -221,11 +165,14 @@ function Test-ADUser
     <#
     .SYNOPSIS
         Tests an AD user to ensure it is not disabled or expired
+
     .DESCRIPTION
         This function provides a way to check whether an AD user is still valid for provisioning.
         $True will be returned when the AD user is not disabled or expired.
+
     .EXAMPLE
         Test-ADUser -User $ADUser
+
     .PARAMETER User
         An AD user object
     #>
@@ -248,35 +195,49 @@ function Test-ADUser
     }
 }
 
-LogMessage -Message "Starting script..."
+Write-Host "Starting script..."
 
 #
 # Print out dry run warning
 #
-if ( $DryRun -eq $True ) { LogMessage -Message "DryRun is True, not committing changes..." }
+if ( $DryRun -eq $True ) { Write-Host "DryRun is True, not committing changes..." }
 
 #
 # Get AD users from groups
 #
-LogMessage -Message "Getting AD users..."
+Write-Host "Getting AD users..."
 ForEach ( $ADGroup in $ADGroups )
 {
-    LogMessage -Message "Gettings AD users in group $ADGroup..."
+    Write-Verbose "Getting AD users in group $ADGroup..."
     try
     {
         $ADUsers += Get-ADGroupMember "$ADGroup" -Credential $DomainCredentials | Get-ADUser -Credential $DomainCredentials -Properties Mail, Enabled, AccountExpirationDate
     }
     catch
     {
-        LogMessage -Message "Failed to get users in group: $ADGroup..."
-        throw "Failed to get users in group: $ADGroup..."
+        throw $_
+    }
+}
+
+#
+# Print out AD users
+#
+ForEach ( $ADUser in $ADUsers )
+{
+    if (-not ([string]::IsNullOrEmpty( $ADUser.Mail )))
+    {
+        Write-Verbose "Found AD user $( $ADUser.Mail )..."
+    }
+    else
+    {
+        Write-Verbose "Found AD user without Mail $( $ADUser.SID )..."
     }
 }
 
 #
 # Get provisioned GitHub users
 #
-LogMessage -Message "Getting GitHub users..."
+Write-Host "Getting GitHub users..."
 try
 {
     $GHUsers = Invoke-RestMethod -Headers $Headers -Uri "https://api.github.com/scim/v2/organizations/$GHOrganization/Users" -Method Get | Select-Object -ExpandProperty Resources
@@ -285,38 +246,45 @@ try
 }
 catch
 {
-    LogMessage -Message "Failed to get users in group: $ADGroup..."
-    throw "Failed to get GitHub users"
+    throw $_
+}
+
+#
+# Print out GH users
+#
+ForEach ( $GHUser in $GHUsers )
+{
+    Write-Verbose "Found GH user $( $GHUser.Mail )..."
 }
 
 #
 # Compare AD and GH user objects
 #
 
-LogMessage -Message "Staging users that are present in AD but not in GitHub..."
+Write-Host "Getting users that are present in AD but not in GitHub..."
 $ADUsers | Where-Object { $GHUsers.Mail -notcontains $_.Mail } | ForEach-Object {
-    Update-Results -Subject "$( $_.Mail )" -Action "Provision" -Status "Staged"
+    Write-Verbose "Found user to provision: $( $_.Mail )..."
     $UsersToProvision += $_
 }
 
-LogMessage -Message "Staging users that are present in GitHub but not in AD..."
+Write-Host "Getting users that are present in GitHub but not in AD..."
 $GHUsers | Where-Object { $ADUsers.Mail -notcontains $_.Mail } | ForEach-Object {
-    Update-Results -Subject "$( $_.Mail )" -Action "Deprovision" -Status "Staged"
+    Write-Verbose "Found user to deprovision: $( $_.Mail )..."
     $UsersToDeprovision += $_
 }
 
 # Get already provisioned users
-LogMessage -Message "Staging users that are present in both AD and GitHub..."
+Write-Host "Getting users that are present in both AD and GitHub..."
 ForEach ( $ADUser in $ADUsers )
 {
     ForEach ( $GHUser in $GHUsers )
     {
-        if ( $ADUser.Mail -eq $GHUser.externalId )
+        if ( $ADUser.Mail -eq $GHUser.Mail )
         {
             # Check for deprovision
             if ( -not ( Test-ADUser( $ADUser ) ) ) # Check if AD account is disabled or expired
             {
-                Update-Results -Subject "$( $ADUser.Mail )" -Action "Deprovision (Expired/disabled)" -Status "Staged"
+                Write-Verbose "Found user to deprovision: $( $ADUser.Mail )..."
                 $UsersToDeprovision += $ADUser
             }
         }
@@ -326,67 +294,53 @@ ForEach ( $ADUser in $ADUsers )
 #
 # Provision routine
 #
-if ( $ProvisionUsers -eq $True )
+Write-Host "Starting provisioning routine..."
+if ( $UsersToProvision.Count -gt 0 ) # Ensure there are some users to provision
 {
-    if ( $UsersToProvision.Count -gt 0 ) # Ensure there are some users to provision
+    ForEach ( $UserToProvision in $UsersToProvision )
     {
-        ForEach ( $UserToProvision in $UsersToProvision )
+        # Check for deprovision
+        if ( -not ( Test-ADUser( $UserToProvision ) ) ) # Check if AD account is disabled or expired
         {
-            # Check for deprovision
-            if ( -not ( Test-ADUser( $UserToProvision ) ) ) # Check if AD account is disabled or expired
+            Write-Warning "Staging $( $UserToProvision.Mail ) skipped (expired/disabled)..."
+        }
+        elseif ( -not ( Test-EmailAddress( $UserToProvision.Mail ) ) ) # Ensure the Mail attribute is valid
+        {
+            Write-Warning "Staging $( $UserToProvision.Mail ) skipped (invalid Mail attribute)..."
+        }
+        else
+        {
+            Write-Verbose "Staging $( $UserToProvision.Mail ) for provisioning..."
+            if ( $DryRun -eq $false )
             {
-                Update-Results -Subject "$( $UserToProvision.Mail )" -Action "Provision" -Status "Skip (Expired/disabled)"
-            }
-            elseif ( -not ( Test-EmailAddress( $UserToProvision.Mail ) ) ) # Ensure the Mail attribute is valid
-            {
-                Update-Results -Subject "$( $UserToProvision.Mail )" -Action "Provision" -Status "Skip (AD Invalid Mail Attribute)"
-            }
-            else
-            {
-                Update-Results -Subject "$( $UserToProvision.Mail )" -Action "Provision" -Status "Processing"
-                if ( $DryRun -eq $false )
-                {
-                    Add-GitHubUser -User $UserToProvision
-                }
+                Add-GitHubUser -User $UserToProvision
             }
         }
-    }
-    else
-    {
-        LogMessage -Message "No users to provision (UsersToProvision.Count is 0)..."
     }
 }
 else
 {
-    LogMessage -Message "ProvisionUsers is not true, skipping routine..."
+    Write-Verbose "No users to provision..."
 }
 
 #
 # Deprovision routine
 #
-if ( $DeprovisionUsers -eq $True )
+Write-Host "Starting deprovisioning routine..."
+if ( $UsersToDeprovision.Count -gt 0 ) # Ensure there are some users to deprovision
 {
-    if ( $UsersToDeprovision.Count -gt 0 ) # Ensure there are some users to deprovision
+    ForEach ( $UserToDeprovision in $UsersToDeprovision )
     {
-        ForEach ( $UserToDeprovision in $UsersToDeprovision )
+        Write-Verbose "Staging $( $UserToDeprovision.Mail ) for deprovisioning..."
+        if ( $DryRun -eq $false )
         {
-            Update-Results -Subject "$( $UserToDeprovision.Mail )" -Action "Deprovision" -Status "Processing"
-            if ( $DryRun -eq $false )
-            {
-                Remove-GitHubUser -GHUserID "$( $UserToDeprovision.id )"
-            }
+            Remove-GitHubUser -GHUserID "$( $UserToDeprovision.id )"
         }
-    }
-    else
-    {
-        LogMessage -Message "No users to deprovision (UsersToDeprovision.Count is 0)..."
     }
 }
 else
 {
-    LogMessage -Message "DeprovisionUsers is not true, skipping routine..."
+    Write-Verbose "No users to deprovision..."
 }
 
-Get-Results | Out-Host
-
-LogMessage -Message "Finished script."
+Write-Host "Finished script."
