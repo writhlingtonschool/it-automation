@@ -7,7 +7,7 @@
     group membership.  Users are deprovisioned when they are disabled or expired.
 
 .EXAMPLE
-    Add-GitHubUsers.ps1 -GHToken "askfj02jj208f9j0a98jf" -GHOrganization "myorganization" -ADGroups @( "ADGroup1" ) -DomainUser "DOMAIN\user" -DomainPass "Pa5sword" -DryRun $True -Verbose $True
+    Add-GitHubUsers.ps1 -GHToken "askfj02jj208f9j0a98jf" -GHOrganization "myorganization" -ADGroups "Group1,Group2,Group3" -DomainUser "DOMAIN\user" -DomainPass "Pa5sword" -DryRun $True -Verbose $True
 
 .PARAMETER GHToken
     GitHub token granting appropriate privileges
@@ -16,7 +16,7 @@
     The GitHub organization for provisioning into
 
 .PARAMETER ADGroups
-    An array of AD groups to search
+    An comma-separated list of AD groups to search
 
 .PARAMETER DomainUser
     An AD domain user with permission to perform group and user lookups
@@ -38,7 +38,7 @@ param
 (
     [string]$GHToken,
     [string]$GHOrganization,
-    [String[]]$ADGroups,
+    [String]$ADGroups,
     [string]$DomainUser,
     [string]$DomainPass,
     [switch]$DryRun,
@@ -61,8 +61,9 @@ $Headers.Add( "Authorization", 'Basic {0}' -f $Base64GHToken )
 $Headers.Add( "Accept", 'application/vnd.github.cloud-9-preview+json+scim' )
 
 # Active Directory
-$DomainPassSecure=ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
-$DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
+$ADGroups = $ADGroups -split ","
+$DomainPassSecure = ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
+$DomainCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
 
 # Instantiate arrays
 $ADUsers = New-Object System.Collections.ArrayList
