@@ -34,6 +34,9 @@
     https://github.com/writhlingtonschool/it-powershellmodules
 #>
 
+# Disable progress bars (avoids XML in Rundeck)
+$Global:ProgressPreference = 'SilentlyContinue'
+
 param
 (
     [string]$GHToken,
@@ -47,9 +50,6 @@ param
 
 # Configure PS to use TLS 1.2 for web requests
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-# Disable progress bars (avoids XML in Rundeck)
-$ProgressPreference = 'SilentlyContinue'
 
 # Enable verbose logging
 if( $Verbose -eq $True )
