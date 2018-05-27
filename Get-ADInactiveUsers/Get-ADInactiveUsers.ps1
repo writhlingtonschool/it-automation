@@ -23,10 +23,10 @@
 
 param
 (
-    [Parameter(Mandatory=$true)][string]$SearchBase,
-    [Parameter(Mandatory=$true)][string]$TimeSpan,
-    [Parameter(Mandatory=$true)][string]$DomainUser,
-    [Parameter(Mandatory=$true)][string]$DomainPass
+    [Parameter(Mandatory=$true)]$SearchBase,
+    [Parameter(Mandatory=$true)]$TimeSpan,
+    [Parameter(Mandatory=$true)]$DomainUser,
+    [Parameter(Mandatory=$true)]$DomainPass
 )
 
 # Prepare PSCredential object
