@@ -61,7 +61,7 @@ $Headers.Add( "Authorization", 'Basic {0}' -f $Base64GHToken )
 $Headers.Add( "Accept", 'application/vnd.github.cloud-9-preview+json+scim' )
 
 # Active Directory
-$ADGroups = $ADGroups -split ","
+$ADGroupsCombined = $ADGroups -split ","
 $DomainPassSecure = ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
 $DomainCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
 
@@ -226,7 +226,7 @@ if ( $DryRun -eq $True ) { Write-Host "DryRun is True, not committing changes...
 # Get AD users from groups
 #
 Write-Host "Getting AD users..."
-ForEach ( $ADGroup in $ADGroups )
+ForEach ( $ADGroup in $ADGroupsCombined )
 {
     Write-Verbose "Getting AD users in group $ADGroup..."
     try
