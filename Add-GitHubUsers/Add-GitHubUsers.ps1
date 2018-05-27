@@ -41,8 +41,8 @@ param
     [String[]]$ADGroups,
     [string]$DomainUser,
     [string]$DomainPass,
-    [bool]$DryRun,
-    [bool]$Verbose
+    [switch]$DryRun,
+    [switch]$Verbose
 )
 
 # Configure PS to use TLS 1.2 for web requests
