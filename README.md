@@ -18,4 +18,4 @@ Provisions and deprovisions GitHub users based on Active Directory group members
 
 #### `Get-ADInactiveUsers`
 
-Gets inactive users (no authentication with x days) and sends the result in an e-mail.
+This script searches for users that haven't authenticated to domain-joined PCs in x days.
