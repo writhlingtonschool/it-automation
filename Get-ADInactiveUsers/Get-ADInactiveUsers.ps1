@@ -29,8 +29,6 @@ param
     [Parameter(Mandatory=$true)]$DomainPass
 )
 
-Import-Module ActiveDirectory
-
 # Prepare PSCredential object
 $DomainPassSecure=ConvertTo-SecureString -String "$DomainPass" -AsPlainText -Force
 $DomainCredentials=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $DomainUser, $DomainPassSecure
