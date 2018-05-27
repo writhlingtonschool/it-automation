@@ -45,6 +45,8 @@ param
     [switch]$Verbose
 )
 
+$Global:ProgresPreference = 'SilentlyContinue'
+
 # Configure PS to use TLS 1.2 for web requests
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
