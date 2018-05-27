@@ -3,13 +3,32 @@
     This script synchronises GitHub users with Active Directory using SCIM
 
 .DESCRIPTION
-
     This module provisions and deprovisions GitHub users based on Active directory
     group membership.  Users are deprovisioned when they are disabled or expired.
 
 .EXAMPLE
+    Add-GitHubUsers.ps1 -GHToken "askfj02jj208f9j0a98jf" -GHOrganization "myorganization" -ADGroups @( "ADGroup1" ) -DomainUser "DOMAIN\user" -DomainPass "Pa5sword" -DryRun $True -Verbose $True
 
-    Add-GitHubUsers.ps1
+.PARAMETER GHToken
+    GitHub token granting appropriate privileges
+
+.PARAMETER GHOrganization
+    The GitHub organization for provisioning into
+
+.PARAMETER ADGroups
+    An array of AD groups to search
+
+.PARAMETER DomainUser
+    An AD domain user with permission to perform group and user lookups
+
+.PARAMETER DomainPass
+    The password for the respective $DomainUser
+
+.PARAMETER DryRun
+    Dry run will not commit any changes to GitHub
+
+.PARAMETER Verbose
+    Verbose will print out verbose information
 
 .LINK
     https://github.com/writhlingtonschool/it-powershellmodules
