@@ -38,15 +38,12 @@ param
 (
     [string]$GHToken,
     [string]$GHOrganization,
-    [String[]]$ADGroups,
+    [string[]]$ADGroups,
     [string]$DomainUser,
     [string]$DomainPass,
     [switch]$DryRun,
     [switch]$Verbose
 )
-
-# Disable progress bars (avoids XML in Rundeck)
-$Global:ProgressPreference = 'SilentlyContinue'
 
 # Configure PS to use TLS 1.2 for web requests
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
