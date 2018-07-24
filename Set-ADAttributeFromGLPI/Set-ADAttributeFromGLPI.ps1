@@ -31,7 +31,7 @@ if( $Verbose -eq $True )
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = New-Object System.Collections.ArrayList
-$attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="locations_id"; ADAttribute="location"; ValidCharsRegex="^[>'é/a-zA-Z0-9- ]{1,64}$" }
+$attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="locations_id"; ADAttribute="location"; ValidCharsRegex="^[>'é/a-zA-Z0-9- ]{3,64}$" }
 
 # Active Directory
 $ADDomainPassSecure = ConvertTo-SecureString -String "$ADDomainPass" -AsPlainText -Force
@@ -207,7 +207,7 @@ if ( $computersToUpdate.Count -gt 0 ) {
         }
         else
         {
-            Write-Error "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )..."
+            Write-Error "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
         }
     }
 }
