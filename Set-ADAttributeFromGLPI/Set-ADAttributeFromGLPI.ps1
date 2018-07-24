@@ -50,7 +50,7 @@ $computersToUpdate = New-Object System.Collections.ArrayList
 Write-Host "Getting AD computers..."
 try
 {
-    $ADComputers = Get-ADComputer -SearchBase "$ADSearchBase" -Properties $ADProperties -Filter "*"
+    $ADComputers = Get-ADComputer -SearchBase "$ADSearchBase" -Properties $ADProperties -Filter "*" -Credential $ADDomainCredentials
 }
 catch
 {
