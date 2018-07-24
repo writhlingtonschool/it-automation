@@ -9,102 +9,64 @@
     https://github.com/writhlingtonschool/it-automation
 #>
 
-# Step 1: Get AD computers
-# Step 2: Initialise GLPI REST API session
-# Step 3: Get GLPI computers
-# Step 4: Kill GLPI REST API session
-# Step 5: Ensure we have some AD computers to process
-# Step 6: Ensure we have some GLPI computers to process
-# Step 7: Match AD to GLPI computers add them to an array of objects
-# Step 8: Ensure we have some matched computers to process
-# Step 9: Loop through matched computers and calculate proposed changes
-# Step 10: Run update routine
-# Step 11: Present results
+param
+(
+    [string]$ADSearchBase,
+    [string[]]$ADProperties,
+    [string]$ADDomainUser,
+    [string]$ADDomainPass,
+    [string]$GLPIUser,
+    [string]$GLPIPass,
+    [string]$GLPIAppToken,
+    [string]$GLPIAPIURI,
+    [switch]$DryRun,
+    [switch]$Verbose
+)
 
-# Import settings from configuration file
-$workDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-[xml]$configFile = Get-Content "$workDir/Set-ADAttributeFromGLPI.xml" -ErrorAction Stop
+# Enable verbose logging
+if( $Verbose -eq $True )
+{
+    $VerbosePreference = "continue"
+}
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = New-Object System.Collections.ArrayList
-$attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="locations_id"; ADAttribute="RoomNumber"; ValidCharsRegex="^[>'é/a-zA-Z0-9- ]{1,64}$" }
-$attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="serial"; ADAttribute="SerialNumber"; ValidCharsRegex="^[a-zA-Z0-9]{1,64}$" }
+$attributes += New-Object -TypeName PSCustomObject -Property @{ GLPIAttribute="locations_id"; ADAttribute="location"; ValidCharsRegex="^[>'é/a-zA-Z0-9- ]{1,64}$" }
 
 # Active Directory
-$ADSearchBase = $configFile.Settings.ADSettings.ADSearchBase
-$ADSearchFilter = $configFile.Settings.ADSettings.ADSearchFilter
-$ADProperties = @( "*" )
-$ADDomainUser = $configFile.Settings.ADSettings.ADDomainUser
-$ADDomainPass = ConvertTo-SecureString -String $configFile.Settings.ADSettings.ADDomainPass -AsPlainText -Force
-$ADDomainCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $ADDomainUser, $ADDomainPass
-$ADDryRun = $false
+$ADDomainPassSecure = ConvertTo-SecureString -String "$ADDomainPass" -AsPlainText -Force
+$ADDomainCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList "$ADDomainUser", $ADDomainPassSecure
 
 # GLPI
-$glpiCredentials = [Convert]::ToBase64String( [Text.Encoding]::ASCII.GetBytes((` "{0}:{1}" -f $configFile.Settings.GLPISettings.GLPIUser, $configFile.Settings.GLPISettings.GLPIPass )) )
-$glpiAppToken = $configFile.Settings.GLPISettings.GLPIAppToken
-$glpiRestApiUri = $configFile.Settings.GLPISettings.GLPIRestApiUri
+$GLPICredentials = [Convert]::ToBase64String( [Text.Encoding]::ASCII.GetBytes((` "{0}:{1}" -f $GLPIUser, $GLPIPass )) )
 
 # Instantiate arrays
 $computersMatched = New-Object System.Collections.ArrayList
 $computersToUpdate = New-Object System.Collections.ArrayList
-$results = New-Object System.Collections.ArrayList
-
-# Function to update result array
-function Update-Results
-{
-    param
-    (
-        [Parameter(Position=0)]
-        [Object[]]$CurrentObject,
-
-        [Parameter(Position=1)]
-        [string]$Result
-    )
-    $script:results += New-Object -TypeName PSCustomObject -Property @{
-        ADComputer="$( $CurrentObject.ADComputer )";
-        ADAttribute="$( $CurrentObject.ADAttribute )";
-        ADAttributeVal="$( $CurrentObject.ADAttributeVal )";
-        GLPIAttributeVal="$( $CurrentObject.GLPIAttributeVal )";
-        GLPIAttribute="$( $CurrentObject.GLPIAttribute )";
-        Result="$Result"
-        }
-}
-
-# Function to get results
-function Get-Results
-{
-    $x = New-Object System.Collections.ArrayList
-    ForEach ( $result in $results )
-    {
-        $x += $result
-    }
-    return $x
-}
-
 
 #
-# Step 1: Get AD computers
+# Get AD computers
 #
-Write-Host "[INFO] Getting AD computers..."
+Write-Host "Getting AD computers..."
 try
 {
-    $ADComputers = Get-ADComputer -Filter "$ADSearchFilter" -SearchBase "$ADSearchBase" -Properties $ADProperties
+    $ADComputers = Get-ADComputer -SearchBase "$ADSearchBase" -Properties $ADProperties -Filter "*"
 }
 catch
 {
-    Throw "Is ADSearchBase defined correctly? " + "$_.FullyQualifiedErrorId"
+    throw "Is ADSearchBase defined correctly? " + "$_.FullyQualifiedErrorId"
 }
 
 #
-# Step 2: Initialise GLPI REST API session
+# Initialise GLPI REST API session
 #
-Write-Host "[INFO] Initialising GLPI REST API..."
+Write-Host "Initialising GLPI REST API..."
 $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
-$headers.Add( "Authorization", ( "Basic {0}" -f $glpiCredentials ) )
+$headers.Add( "Authorization", ( "Basic {0}" -f $GLPICredentials ) )
 $headers.Add( "App-Token", $glpiAppToken )
 try
 {
-    $sessionToken = Invoke-RestMethod -Headers $headers -Method Get -Uri "$glpiRestApiUri/initSession/"
+    $sessionToken = Invoke-RestMethod -Headers $headers -Method Get -Uri "$GLPIAPIURI/initSession/"
 }
 catch
 {
@@ -112,39 +74,39 @@ catch
 }
 
 #
-# Step 3: Get GLPI computers
+# Get GLPI computers
 #
-Write-Host "[INFO] Getting GLPI computers..."
+Write-Host "Getting GLPI computers..."
 $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
 $headers.Add( "Session-Token", "$( $sessionToken.session_token )" )
 $headers.Add( "App-Token", $glpiAppToken )
 try
 {
-    $glpiComputers = Invoke-RestMethod -Headers $headers -Method Get -Uri "$glpiRestApiUri/Computer?expand_dropdowns=true&range=3300-3319"
+    $GLPIComputers = Invoke-RestMethod -Headers $headers -Method Get -Uri "$GLPIAPIURI/Computer?expand_dropdowns=true&range=1-99999"
 }
 catch
 {
-    throw "$_.FullyQualifiedErrorId"
+    throw "Failed to get GLPI computers: $_.FullyQualifiedErrorId"
 }
 
 #
-# Step 4: Kill GLPI REST API session
+# Kill GLPI REST API session
 #
-Write-Host "[INFO] Killing GLPI REST API session..."
+Write-Host "Killing GLPI REST API session..."
 $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
 $headers.Add( "Session-Token", "$( $sessionToken.session_token )" )
 $headers.Add( "App-Token", $glpiAppToken )
 try
 {
-    Invoke-RestMethod -Headers $headers -Method Get -Uri $glpiRestApiUri/killSession
+    Invoke-RestMethod -Headers $headers -Method Get -Uri $GLPIAPIURI/killSession | Out-Null
 }
 catch
 {
-    throw "$_.FullyQualifiedErrorId"
+    throw "Failed to kill GLPI REST API session: $_.FullyQualifiedErrorId"
 }
 
 #
-# Step 5: Ensure we have some AD computers to process
+# Ensure we have some AD computers to process
 #
 if ( $ADComputers.Count -lt 1 )
 {
@@ -152,23 +114,24 @@ if ( $ADComputers.Count -lt 1 )
 }
 
 #
-# Step 6: Ensure we have some GLPI computers to process
+# Ensure we have some GLPI computers to process
 #
-if ( $glpiComputers.Count -lt 1 )
+if ( $GLPIComputers.Count -lt 1 )
 {
-    throw "No GLPI computers are available to process (glpiComputers is < 1)"
+    throw "No GLPI computers are available to process (GLPIComputers is < 1)"
 }
 
 #
-# Step 7: Match AD to GLPI computers add them to an array of objects
+# Match AD to GLPI computers add them to an array of objects
 #
-Write-Host "[INFO] Finding AD -> GLPI matches..."
+Write-Host "Finding AD -> GLPI matches..."
 ForEach ( $ADComputer in $ADComputers ) # Loop through AD computers
 {
-    ForEach ( $glpiComputer in $glpiComputers ) # Sub-loop through GLPI computers
+    ForEach ( $GLPIComputer in $GLPIComputers ) # Sub-loop through GLPI computers
     {
-        if ( $( $ADComputer.Name ) -eq $( $glpiComputer.name ) )
+        if ( $( $ADComputer.Name ) -eq $( $GLPIComputer.name ) )
         {
+            Write-Verbose "Matched $( $ADComputer.Name ) (AD) -> $( $GLPIComputer.name ) (GLPI)..."
             ForEach ( $attribute in $attributes )
             {
                 $computersMatched += New-Object -TypeName PSCustomObject -Property @{
@@ -184,7 +147,7 @@ ForEach ( $ADComputer in $ADComputers ) # Loop through AD computers
 }
 
 #
-# Step 8: Ensure we have some matched computers to process
+# Ensure we have some matched computers to process
 #
 if ( $computersMatched.Count -lt 1 )
 {
@@ -192,68 +155,65 @@ if ( $computersMatched.Count -lt 1 )
 }
 
 #
-# Step 9: Loop through matched computers and calculate proposed changes
+# Loop through matched computers and calculate proposed changes
 #
-Write-Host "[INFO] Calculating proposed changes..."
+Write-Host "Calculating proposed changes..."
 ForEach ( $matchedComputer in $computersMatched )
 {
     if ( "$( $matchedComputer.ADAttributeVal )" -eq "$( $matchedComputer.GLPIAttributeVal )" )
     {
-        Update-Results -CurrentObject $matchedComputer -Result "Unchanged"
+        Write-Host "Not changing $( $matchedComputer.ADComputer )..."
     }
     else
     {
-        Update-Results -CurrentObject $matchedComputer -Result "Staged (pending update)"
+        Write-Host "Update staged for $( $matchedComputer.ADComputer )..."
+        Write-Verbose "$( $matchedComputer.ADComputer ): AD attribute '$( $matchedComputer.ADAttribute )' is '$( $matchedComputer.ADAttributeVal )'..."
+        Write-Verbose "$( $matchedComputer.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' is '$( $matchedComputer.GLPIAttributeVal )'..."
         $computersToUpdate += New-Object -TypeName PSCustomObject -Property @{
-          ADComputer="$( $matchedComputer.ADComputer )";
-          ADAttribute="$( $matchedComputer.ADAttribute )";
-          ADAttributeVal="$( $matchedComputer.ADAttributeVal )";
-          GLPIAttributeVal="$( $matchedComputer.GLPIAttributeVal )";
-          GLPIAttribute="$( $matchedComputer.GLPIAttribute )"
-          }
+            ADComputer="$( $matchedComputer.ADComputer )";
+            ADAttribute="$( $matchedComputer.ADAttribute )";
+            ADAttributeVal="$( $matchedComputer.ADAttributeVal )";
+            GLPIAttributeVal="$( $matchedComputer.GLPIAttributeVal )";
+            GLPIAttribute="$( $matchedComputer.GLPIAttribute )"
+            }
     }
 }
 
 #
-# Step 10: Run update routine
+# Run update routine
 #
-Write-Host "[INFO] Running update routine..."
+Write-Host "Running update routine..."
 if ( $computersToUpdate.Count -gt 0 ) {
     ForEach ( $computerToUpdate in $computersToUpdate )
     {
-        $validCharsRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
-        if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$validCharsRegex" )
+        Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
+        $ValidInputRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
+        if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
         {
-            try
+            Write-Verbose "$( $computerToUpdate.ADComputer ): regex test passed for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
+            if ( $DryRun -eq $False )
             {
-                if ( $ADDryRun -eq $true )
+                try
                 {
-                  Write-Host "[INFO] ADDryRun is true, not commiting changes..."
+                    Write-Verbose "$( $computerToUpdate.ADComputer ): running Set-ADComputer..."
+                    Set-ADComputer "$( $computerToUpdate.ADComputer )" -Replace @{$( $computerToUpdate.ADAttribute ) = "$( $computerToUpdate.GLPIAttributeVal )"} -Credential $ADDomainCredentials
+                    Write-Host "Updated $( $computerToUpdate.ADComputer )..."
                 }
-                else
+                catch
                 {
-                  Set-ADComputer "$( $computerToUpdate.ADComputer )" -Replace @{$( $computerToUpdate.ADAttribute ) = "$( $computerToUpdate.GLPIAttributeVal )"} -Credential $ADDomainCredentials
+                    Write-Error "$( $computerToUpdate.ADComputer ): Failed to run Set-ADComputer: $_"
                 }
-                Update-Results -CurrentObject $computerToUpdate -Result "Updated"
-            }
-            catch
-            {
-              Update-Results -CurrentObject $computerToUpdate -Result "Failed ($($_.CategoryInfo.ToString()))"
             }
         }
         else
         {
-            Update-Results -CurrentObject $computerToUpdate -Result "Failed (regex test)"
+            Write-Error "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )..."
         }
     }
 }
 else
 {
-    Write-Host "[INFO] No computers to update."
+    Write-Host "No computers to update."
 }
 
-#
-# Step 11: Present results
-#
-Write-Host "[INFO] Results:"
-Get-Results | Format-Table
+Write-Host "Finished script."
