@@ -171,8 +171,6 @@ ForEach ( $matchedComputer in $computersMatched )
     else
     {
         Write-Host "Update staged for $( $matchedComputer.ADComputer )..."
-        Write-Verbose "$( $matchedComputer.ADComputer ): AD attribute '$( $matchedComputer.ADAttribute )' is '$( $matchedComputer.ADAttributeVal )'..."
-        Write-Verbose "$( $matchedComputer.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' is '$( $matchedComputer.GLPIAttributeVal )'..."
         $computersToUpdate += New-Object -TypeName PSCustomObject -Property @{
             ADComputer="$( $matchedComputer.ADComputer )";
             ADAttribute="$( $matchedComputer.ADAttribute )";
@@ -189,6 +187,7 @@ ForEach ( $matchedComputer in $computersMatched )
 Write-Host "Running update routine..."
 if ( $computersToUpdate.Count -gt 0 )
     {
+    Write-Verbose "There are $( $computersToUpdate.Count ) updates staged..."
     if ( $computersToUpdate.Count -lt $MaximumChanges )
     {
         ForEach ( $computerToUpdate in $computersToUpdate )
@@ -198,6 +197,9 @@ if ( $computersToUpdate.Count -gt 0 )
             if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
             {
                 Write-Verbose "$( $computerToUpdate.ADComputer ): regex test passed for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
+                Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' -> AD attribute '$( $matchedComputer.ADAttribute )'..."
+                Write-Verbose "$( $computerToUpdate.ADComputer ): AD attribute value is '$( $matchedComputer.ADAttributeVal )'..."
+                Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute value is '$( $matchedComputer.GLPIAttributeVal )'..."
                 if ( $DryRun -eq $False )
                 {
                     try
