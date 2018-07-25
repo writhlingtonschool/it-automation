@@ -19,7 +19,7 @@ param
     [string]$GLPIPass,
     [string]$GLPIAppToken,
     [string]$GLPIAPIURI,
-    [int]$MaximumChanges,
+#    [int]$MaximumChanges,
     [switch]$DryRun,
     [switch]$Verbose
 )
@@ -191,8 +191,8 @@ Write-Host "Running update routine..."
 if ( $computersToUpdate.Count -gt 0 )
     {
     Write-Verbose "There are $( $computersToUpdate.Count ) updates staged..."
-    if ( $computersToUpdate.Count -lt $MaximumChanges )
-    {
+#    if ( $computersToUpdate.Count -lt $MaximumChanges )
+#    {
         ForEach ( $computerToUpdate in $computersToUpdate )
         {
             Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
@@ -222,11 +222,11 @@ if ( $computersToUpdate.Count -gt 0 )
                 Write-Warning "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
             }
         }
-    }
-    else
-    {
-        throw "There are $( $computersToUpdate.Count ) updates staged which is more than the maximum limit of $MaximumChanges."
-    }
+ #   }
+ #   else
+ #   {
+ #       throw "There are $( $computersToUpdate.Count ) updates staged which is more than the maximum limit of $MaximumChanges."
+ #   }
 }
 else
 {
