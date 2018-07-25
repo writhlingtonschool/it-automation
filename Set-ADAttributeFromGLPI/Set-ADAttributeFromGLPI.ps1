@@ -25,7 +25,10 @@ param
 )
 
 # Enable verbose logging
-if ( $Verbose -eq $True ) { $VerbosePreference = "continue" }
+if ( $Verbose -eq $True ) {
+    Write-Host "Verbose is true..."
+    $VerbosePreference = "continue"
+}
 
 # Notify if DryRun is true
 if ( $DryRun -eq $True ) { Write-Host "DryRun is true..." }
