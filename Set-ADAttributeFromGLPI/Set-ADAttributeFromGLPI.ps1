@@ -19,6 +19,7 @@ param
     [string]$GLPIPass,
     [string]$GLPIAppToken,
     [string]$GLPIAPIURI,
+    [int]$MaximumChanges,
     [switch]$DryRun,
     [switch]$Verbose
 )
@@ -186,32 +187,40 @@ ForEach ( $matchedComputer in $computersMatched )
 # Run update routine
 #
 Write-Host "Running update routine..."
-if ( $computersToUpdate.Count -gt 0 ) {
-    ForEach ( $computerToUpdate in $computersToUpdate )
+if ( $computersToUpdate.Count -gt 0 )
     {
-        Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
-        $ValidInputRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
-        if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
+    if ( $computersToUpdate.Count -lt $MaximumChanges )
+    {
+        ForEach ( $computerToUpdate in $computersToUpdate )
         {
-            Write-Verbose "$( $computerToUpdate.ADComputer ): regex test passed for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
-            if ( $DryRun -eq $False )
+            Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
+            $ValidInputRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
+            if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
             {
-                try
+                Write-Verbose "$( $computerToUpdate.ADComputer ): regex test passed for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
+                if ( $DryRun -eq $False )
                 {
-                    Write-Verbose "$( $computerToUpdate.ADComputer ): running Set-ADComputer..."
-                    Set-ADComputer "$( $computerToUpdate.ADComputer )" -Replace @{$( $computerToUpdate.ADAttribute ) = "$( $computerToUpdate.GLPIAttributeVal )"} -Credential $ADDomainCredentials
-                    Write-Host "Updated $( $computerToUpdate.ADComputer )..."
-                }
-                catch
-                {
-                    Write-Warning "$( $computerToUpdate.ADComputer ): Failed to run Set-ADComputer: $_"
+                    try
+                    {
+                        Write-Verbose "$( $computerToUpdate.ADComputer ): running Set-ADComputer..."
+                        Set-ADComputer "$( $computerToUpdate.ADComputer )" -Replace @{$( $computerToUpdate.ADAttribute ) = "$( $computerToUpdate.GLPIAttributeVal )"} -Credential $ADDomainCredentials
+                        Write-Host "Updated $( $computerToUpdate.ADComputer )..."
+                    }
+                    catch
+                    {
+                        Write-Warning "$( $computerToUpdate.ADComputer ): Failed to run Set-ADComputer: $_"
+                    }
                 }
             }
+            else
+            {
+                Write-Warning "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
+            }
         }
-        else
-        {
-            Write-Warning "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
-        }
+    }
+    else
+    {
+        throw "There are $( $computersToUpdate.Count ) updates staged which is more than the maximum limit of $MaximumChanges."
     }
 }
 else
