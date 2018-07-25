@@ -11,7 +11,7 @@
 
 param
 (
-    [string]$ADSearchBase,
+    [string[]]$ADSearchBases,
     [string[]]$ADProperties,
     [string]$ADDomainUser,
     [string]$ADDomainPass,
@@ -57,7 +57,10 @@ Write-Host "Starting script..."
 Write-Host "Getting AD computers..."
 try
 {
-    $ADComputers = Get-ADComputer -SearchBase "$ADSearchBase" -Properties $ADProperties -Filter "*" -Credential $ADDomainCredentials
+    ForEach ( $ADSearchBase in $ADSearchBases )
+    {
+        $ADComputers += Get-ADComputer -SearchBase "$ADSearchBase" -Properties $ADProperties -Filter "*" -Credential $ADDomainCredentials
+    }
 }
 catch
 {
