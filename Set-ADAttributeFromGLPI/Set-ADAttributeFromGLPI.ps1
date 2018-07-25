@@ -24,10 +24,10 @@ param
 )
 
 # Enable verbose logging
-if( $Verbose -eq $True )
-{
-    $VerbosePreference = "continue"
-}
+if ( $Verbose -eq $True ) { $VerbosePreference = "continue" }
+
+# Notify if DryRun is true
+if ( $DryRun -eq $True ) { Write-Host "DryRun is true..." }
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = New-Object System.Collections.ArrayList
