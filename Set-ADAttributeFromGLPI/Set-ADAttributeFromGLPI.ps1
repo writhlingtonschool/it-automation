@@ -38,11 +38,14 @@ $ADDomainPassSecure = ConvertTo-SecureString -String "$ADDomainPass" -AsPlainTex
 $ADDomainCredentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList "$ADDomainUser", $ADDomainPassSecure
 
 # GLPI
-$GLPICredentials = [Convert]::ToBase64String( [Text.Encoding]::ASCII.GetBytes((` "{0}:{1}" -f $GLPIUser, $GLPIPass )) )
+$GLPICredentials = [Convert]::ToBase64String( [Text.Encoding]::ASCII.GetBytes((` "{0}:{1}" -f "$GLPIUser", "$GLPIPass" )) )
 
 # Instantiate arrays
 $computersMatched = New-Object System.Collections.ArrayList
 $computersToUpdate = New-Object System.Collections.ArrayList
+
+# Starting message
+Write-Host "Starting script..."
 
 #
 # Get AD computers
