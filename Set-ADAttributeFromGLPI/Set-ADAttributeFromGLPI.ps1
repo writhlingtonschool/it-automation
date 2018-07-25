@@ -204,13 +204,13 @@ if ( $computersToUpdate.Count -gt 0 ) {
                 }
                 catch
                 {
-                    Write-Error "$( $computerToUpdate.ADComputer ): Failed to run Set-ADComputer: $_"
+                    Write-Warning "$( $computerToUpdate.ADComputer ): Failed to run Set-ADComputer: $_"
                 }
             }
         }
         else
         {
-            Write-Error "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
+            Write-Warning "$( $computerToUpdate.ADComputer ): failed regex check for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
         }
     }
 }
