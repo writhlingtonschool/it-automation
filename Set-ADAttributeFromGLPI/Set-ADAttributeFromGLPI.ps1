@@ -1,9 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Sets AD attributes based on information from GLPI
+    Set AD computer attributes to information from GLPI
 
 .EXAMPLE
-    Set-ADAttributeFromGLPI.ps1
+    Set-ADAttributeFromGLPI.ps1 -ADSearchBase "OUPath" -ADProperties "location" -ADDomainUser "Username" -ADDomainPass "Password" -GLPIUser "Username" -GLPIPass "Password" -GLPIAppToken "Token" -GLPIAPIURI "URI" -MaximumChanges 25 [-Verbose] [-DryRun]
 
 .LINK
     https://github.com/writhlingtonschool/it-automation
@@ -24,14 +24,21 @@ param
     [switch]$Verbose
 )
 
+# Configure PS to use TLS 1.2 for web requests
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # Enable verbose logging
-if ( $Verbose -eq $True ) {
-    Write-Host "Verbose is true..."
+if( $Verbose -eq $True )
+{
+    Write-Host "Verbose mode is enabled..."
     $VerbosePreference = "continue"
 }
 
-# Notify if DryRun is true
-if ( $DryRun -eq $True ) { Write-Host "DryRun is true..." }
+# Print out dry run warning
+if ( $DryRun -eq $True ) { Write-Host "DryRun is True, not committing changes..." }
+
+Write-Host "Starting script..."
+$ADSearchBase
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = New-Object System.Collections.ArrayList
@@ -47,9 +54,6 @@ $GLPICredentials = [Convert]::ToBase64String( [Text.Encoding]::ASCII.GetBytes((`
 # Instantiate arrays
 $computersMatched = New-Object System.Collections.ArrayList
 $computersToUpdate = New-Object System.Collections.ArrayList
-
-# Starting message
-Write-Host "Starting script..."
 
 #
 # Get AD computers
@@ -191,18 +195,18 @@ Write-Host "Running update routine..."
 if ( $computersToUpdate.Count -gt 0 )
     {
     Write-Verbose "There are $( $computersToUpdate.Count ) updates staged..."
-    if ( $computersToUpdate.Count -lt $MaximumChanges )
+    if ( $computersToUpdate.Count -le $MaximumChanges )
     {
         ForEach ( $computerToUpdate in $computersToUpdate )
         {
             Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' -> AD attribute '$( $matchedComputer.ADAttribute )'..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): AD attribute value is '$( $matchedComputer.ADAttributeVal )'..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute value is '$( $matchedComputer.GLPIAttributeVal )'..."
             $ValidInputRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
             if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
             {
                 Write-Verbose "$( $computerToUpdate.ADComputer ): regex test passed for GLPI value '$( $computerToUpdate.GLPIAttributeVal )'..."
-                Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' -> AD attribute '$( $matchedComputer.ADAttribute )'..."
-                Write-Verbose "$( $computerToUpdate.ADComputer ): AD attribute value is '$( $matchedComputer.ADAttributeVal )'..."
-                Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute value is '$( $matchedComputer.GLPIAttributeVal )'..."
                 if ( $DryRun -eq $False )
                 {
                     try
