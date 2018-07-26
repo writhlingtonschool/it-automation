@@ -38,7 +38,6 @@ if( $Verbose -eq $True )
 if ( $DryRun -eq $True ) { Write-Host "DryRun is True, not committing changes..." }
 
 Write-Host "Starting script..."
-$ADSearchBase
 
 # Attributes to set ([GLPI API attribute], [AD Attribute], [Valid Input (Regex)])
 $attributes = New-Object System.Collections.ArrayList
