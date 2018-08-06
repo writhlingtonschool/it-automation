@@ -199,9 +199,9 @@ if ( $computersToUpdate.Count -gt 0 )
         ForEach ( $computerToUpdate in $computersToUpdate )
         {
             Write-Host "Running update routine for $( $computerToUpdate.ADComputer )..."
-            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute '$( $matchedComputer.GLPIAttribute )' -> AD attribute '$( $matchedComputer.ADAttribute )'..."
-            Write-Verbose "$( $computerToUpdate.ADComputer ): AD attribute value is '$( $matchedComputer.ADAttributeVal )'..."
-            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute value is '$( $matchedComputer.GLPIAttributeVal )'..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute '$( $computerToUpdate.GLPIAttribute )' -> AD attribute '$( $computerToUpdate.ADAttribute )'..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): AD attribute value is '$( $computerToUpdate.ADAttributeVal )'..."
+            Write-Verbose "$( $computerToUpdate.ADComputer ): GLPI attribute value is '$( $computerToUpdate.GLPIAttributeVal )'..."
             $ValidInputRegex = $( $attributes | Where-Object { $_.ADAttribute -eq "$( $computerToUpdate.ADAttribute )" } | Select-Object -ExpandProperty ValidCharsRegex ) # Get regex for specific attribute
             if ( "$( $computerToUpdate.GLPIAttributeVal )" -match "$ValidInputRegex" )
             {
